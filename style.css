@@ -1,0 +1,41 @@
+body {
+  
+  background-image: url("bg.png");
+  background-size: cover;
+  background-position: center;
+
+  font-family: monospace;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+}
+
+#game {
+  background: rgba(0, 0, 0, 0.6); 
+  padding: 20px;
+  color: white;
+}
+
+.row {
+  display: flex;
+}
+
+.cell {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #444;
+}
+
+.black {
+  background: white;  
+}
+
+button {
+  font-family: monospace;
+  font-size: 14px;
+  padding: 6px 14px;
+  cursor: pointer;
+  margin-top: 8px;
+}
