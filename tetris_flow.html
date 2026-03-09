@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tetris Flow Diagram</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: monospace;
+      background: #f9f9f9;
+      padding: 30px;
+      color: #111;
+    }
+
+    h1 { font-size: 22px; margin-bottom: 6px; }
+    .subtitle { color: #666; margin-bottom: 30px; font-size: 13px; }
+
+    /* ── SHARED CARD ── */
+    .card {
+      background: white;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 30px;
+    }
+    .card h2 { font-size: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+
+    /* ── VARIABLES TABLE ── */
+    .vars { display: flex; flex-wrap: wrap; gap: 10px; }
+    .var-box {
+      border: 2px solid #aaa;
+      border-radius: 6px;
+      padding: 8px 14px;
+      min-width: 140px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .var-box:hover { background: #fffbe6; }
+    .var-box.highlight { background: #fffbe6; border-color: #f0a500; }
+    .var-name  { font-weight: bold; font-size: 13px; }
+    .var-value { font-size: 12px; color: #555; margin-top: 3px; }
+    .var-desc  { font-size: 11px; color: #888; margin-top: 2px; }
+
+    /* ── FLOW DIAGRAM ── */
+    .flow { display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+
+    .flow-row { display: flex; align-items: center; gap: 0; }
+
+    .box {
+      border: 2px solid #333;
+      border-radius: 6px;
+      padding: 10px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      position: relative;
+      min-width: 180px;
+      text-align: center;
+    }
+    .box:hover { transform: scale(1.03); }
+    .box.active { outline: 3px solid #f0a500; }
+
+    .box.start    { background: #222; color: white; border-color: #222; }
+    .box.fn       { background: #e8f4fd; border-color: #2980b9; }
+    .box.decision { background: #fef9e7; border-color: #d4ac0d; border-radius: 0; transform: rotate(0); }
+    .box.action   { background: #eafaf1; border-color: #27ae60; }
+    .box.end      { background: #fadbd8; border-color: #c0392b; }
+    .box.timer    { background: #f4ecf7; border-color: #8e44ad; }
+
+    .arrow-down {
+      width: 2px; height: 28px;
+      background: #555;
+      margin-left: 89px;
+      position: relative;
+    }
+    .arrow-down::after {
+      content: "▼";
+      position: absolute;
+      bottom: -14px;
+      left: -7px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .arrow-right {
+      width: 40px; height: 2px;
+      background: #555;
+      position: relative;
+    }
+    .arrow-right::after {
+      content: "▶";
+      position: absolute;
+      right: -10px;
+      top: -8px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .label {
+      font-size: 11px;
+      color: #888;
+      margin-left: 92px;
+      margin-bottom: 2px;
+      margin-top: 2px;
+    }
+    .label.yes { color: #27ae60; font-weight: bold; }
+    .label.no  { color: #c0392b; font-weight: bold; }
+
+    /* side branch */
+    .branch {
+      display: flex;
+      gap: 60px;
+      align-items: flex-start;
+    }
+    .branch-col { display: flex; flex-direction: column; align-items: center; }
+    .branch-label { font-size: 11px; font-weight: bold; margin-bottom: 6px; }
+    .branch-label.yes { color: #27ae60; }
+    .branch-label.no  { color: #c0392b; }
+
+    .horizontal-line {
+      height: 2px;
+      background: #555;
+      width: 260px;
+      margin-left: 89px;
+      margin-bottom: 0;
+    }
+
+    /* ── EXPLANATION PANEL ── */
+    #explain-panel {
+      position: fixed;
+      right: 30px;
+      top: 30px;
+      width: 280px;
+      background: white;
+      border: 2px solid #333;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 12px;
+      line-height: 1.7;
+      box-shadow: 4px 4px 0 #ccc;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    #explain-panel h3 { font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    #explain-panel .reads  { color: #2980b9; }
+    #explain-panel .writes { color: #27ae60; }
+    #explain-panel .calls  { color: #8e44ad; }
+    #explain-panel .tag    { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+    #explain-panel .tag.r  { background: #d6eaf8; color: #2980b9; }
+    #explain-panel .tag.w  { background: #d5f5e3; color: #27ae60; }
+    #explain-panel .tag.c  { background: #e8daef; color: #8e44ad; }
+    .hint { font-size: 11px; color: #aaa; margin-top: 16px; text-align: center; }
+
+    /* ── VAR LEGEND ── */
+    .legend { display: flex; gap: 16px; font-size: 11px; margin-bottom: 14px; }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🎮 Tetris — How Functions Call Each Other</h1>
+<p class="subtitle">Click any box or variable to see what it reads, writes, and calls.</p>
+
+<!-- VARIABLES SECTION -->
+<div class="card">
+  <h2>📦 All Variables (Shared State)</h2>
+  <p style="font-size:11px;color:#888;margin-bottom:10px;">These live outside all functions. Any function can read or change them.</p>
+  <div class="vars">
+    <div class="var-box" onclick="showVar('board')" id="v-board">
+      <div class="var-name">board</div>
+      <div class="var-value">[ [0,0,...], [0,0,...], ... ]</div>
+      <div class="var-desc">20 rows × 10 cols grid</div>
+    </div>
+    <div class="var-box" onclick="showVar('fallingShape')" id="v-fallingShape">
+      <div class="var-name">fallingShape</div>
+      <div class="var-value">[[0,1,0],[1,1,1]]</div>
+      <div class="var-desc">current piece shape</div>
+    </div>
+    <div class="var-box" onclick="showVar('fallingRow')" id="v-fallingRow">
+      <div class="var-name">fallingRow</div>
+      <div class="var-value">0</div>
+      <div class="var-desc">how far down the piece is</div>
+    </div>
+    <div class="var-box" onclick="showVar('fallingCol')" id="v-fallingCol">
+      <div class="var-name">fallingCol</div>
+      <div class="var-value">3</div>
+      <div class="var-desc">how far right the piece is</div>
+    </div>
+    <div class="var-box" onclick="showVar('score')" id="v-score">
+      <div class="var-name">score</div>
+      <div class="var-value">0</div>
+      <div class="var-desc">current score</div>
+    </div>
+    <div class="var-box" onclick="showVar('gameTimer')" id="v-gameTimer">
+      <div class="var-name">gameTimer</div>
+      <div class="var-value">null</div>
+      <div class="var-desc">the setInterval id</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN FLOW -->
+<div style="display:flex; gap:40px; flex-wrap:wrap;">
+
+  <!-- LEFT: GAME FLOW -->
+  <div class="card" style="flex:1; min-width:360px;">
+    <h2>⏱ Auto Game Loop (every 600ms)</h2>
+
+    <div class="flow">
+
+      <div class="box start" onclick="showFn('startGame')">startGame() — player clicks Start</div>
+      <div class="arrow-down"></div>
+
+      <div class="box action" onclick="showFn('resetBoard')">reset board, score = 0</div>
+      <div class="arrow-down"></div>
+
+      <div class="box fn" onclick="showFn('dropNewPieceFromTop')">dropNewPieceFromTop()</div>
+      <div class="arrow-down"></div>
+
+      <div class="box fn" onclick="showFn('drawBoardOnScreen')">drawBoardOnScreen()</div>
+      <div class="arrow-down"></div>
+
+      <div class="box timer" onclick="showFn('timer')">setInterval → movePieceDownOneRow()&nbsp; every 600ms</div>
+      <div class="arrow-down"></div>
+
+      <!-- DECISION -->
+      <div class="box decision" onclick="showFn('movePieceDownOneRow')">movePieceDownOneRow()</div>
+      <div class="arrow-down"></div>
+
+      <div class="box decision" onclick="showFn('pieceWillCrash_down')">pieceWillCrash(0, 1) ?</div>
+
+      <!-- BRANCH -->
+      <div style="display:flex; align-items:flex-start; margin-top:0;">
+
+        <!-- NO branch -->
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div style="height:2px;width:91px;background:#555;"></div>
+          <div class="branch-label no" style="margin-top:4px;">NO — safe to fall</div>
+          <div style="width:2px;height:20px;background:#555;"></div>
+          <div class="box action" onclick="showFn('fallingRowPlusPlus')">fallingRow++</div>
+          <div style="width:2px;height:20px;background:#555;"></div>
+          <div class="box fn" onclick="showFn('drawBoardOnScreen')">drawBoardOnScreen()</div>
+        </div>
+
+        <!-- YES branch -->
+        <div style="display:flex; flex-direction:column; align-items:center; margin-left:40px;">
+          <div style="height:2px;width:40px;background:#555;"></div>
+          <div class="branch-label yes" style="margin-top:4px;">YES — piece landed!</div>
+          <div style="width:2px;height:20px;background:#555;"></div>
+          <div class="box fn" onclick="showFn('lockPieceOntoBoard')">lockPieceOntoBoard()</div>
+          <div style="width:2px;height:16px;background:#555;"></div>
+          <div class="box fn" onclick="showFn('removeCompletedRows')">removeCompletedRows()</div>
+          <div style="width:2px;height:16px;background:#555;"></div>
+          <div class="box fn" onclick="showFn('dropNewPieceFromTop')">dropNewPieceFromTop()</div>
+          <div style="width:2px;height:16px;background:#555;"></div>
+          <div class="box decision" onclick="showFn('pieceWillCrash_spawn')">pieceWillCrash(0,0) ?</div>
+          <div style="display:flex;gap:30px;margin-top:0;">
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="height:2px;width:60px;background:#555;"></div>
+              <div class="branch-label no" style="margin-top:4px;">NO</div>
+              <div style="width:2px;height:16px;background:#555;"></div>
+              <div class="box fn" onclick="showFn('drawBoardOnScreen')">drawBoardOnScreen()</div>
+              <div style="font-size:11px;color:#888;margin-top:6px;">↺ loop continues</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="height:2px;width:40px;background:#555;"></div>
+              <div class="branch-label yes" style="margin-top:4px;">YES</div>
+              <div style="width:2px;height:16px;background:#555;"></div>
+              <div class="box end" onclick="showFn('gameOver')">clearInterval(gameTimer)<br>show "Game Over!"</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: KEYBOARD FLOW -->
+  <div style="display:flex;flex-direction:column;gap:20px;flex:0 0 280px;">
+
+    <div class="card">
+      <h2>⌨️ Keyboard Flow</h2>
+      <div class="flow">
+        <div class="box start" onclick="showFn('keydown')">player presses key</div>
+        <div class="arrow-down"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:18px;">←</div>
+            <div class="box action" onclick="showFn('moveLeft')" style="min-width:0;flex:1;">
+              pieceWillCrash(-1,0)?<br>NO → fallingCol--
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:18px;">→</div>
+            <div class="box action" onclick="showFn('moveRight')" style="min-width:0;flex:1;">
+              pieceWillCrash(1,0)?<br>NO → fallingCol++
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:18px;">↓</div>
+            <div class="box fn" onclick="showFn('movePieceDownOneRow')" style="min-width:0;flex:1;">
+              movePieceDownOneRow()
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:18px;">↑</div>
+            <div class="box fn" onclick="showFn('rotateFallingPiece')" style="min-width:0;flex:1;">
+              rotateFallingPiece()
+            </div>
+          </div>
+
+        </div>
+        <div class="arrow-down" style="margin-top:10px;"></div>
+        <div class="box fn" onclick="showFn('drawBoardOnScreen')">drawBoardOnScreen()</div>
+      </div>
+    </div>
+
+    <!-- LEGEND -->
+    <div class="card">
+      <h2>🎨 Color Legend</h2>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:16px;height:16px;background:#222;border-radius:3px;"></div> Entry point (click / timer)</div>
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:16px;height:16px;background:#e8f4fd;border:2px solid #2980b9;border-radius:3px;"></div> Function call</div>
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:16px;height:16px;background:#fef9e7;border:2px solid #d4ac0d;border-radius:3px;"></div> Decision (yes/no)</div>
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:16px;height:16px;background:#eafaf1;border:2px solid #27ae60;border-radius:3px;"></div> Direct action</div>
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:16px;height:16px;background:#f4ecf7;border:2px solid #8e44ad;border-radius:3px;"></div> Timer</div>
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:16px;height:16px;background:#fadbd8;border:2px solid #c0392b;border-radius:3px;"></div> Game over</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- EXPLAIN PANEL -->
+<div id="explain-panel">
+  <h3>👆 Click anything</h3>
+  <p style="color:#aaa;font-size:12px;">Click a box or variable to see exactly what it reads, writes, and calls.</p>
+</div>
+
+
+<script>
+
+const info = {
+
+  board: {
+    title: "board",
+    body: `A 2D array — 20 rows, 10 columns.<br><br>
+<b>board[r][c]</b> = 0 means that cell is empty.<br>
+<b>board[r][c]</b> = 1 means a block is there.<br><br>
+<b>Who writes it?</b><br>
+<span class="tag w">W</span> lockPieceOntoBoard — sets cells to 1<br>
+<span class="tag w">W</span> removeCompletedRows — splices rows<br>
+<span class="tag w">W</span> startGame — resets to all 0s<br><br>
+<b>Who reads it?</b><br>
+<span class="tag r">R</span> pieceWillCrash — checks for blocks<br>
+<span class="tag r">R</span> drawBoardOnScreen — draws filled cells`
+  },
+
+  fallingShape: {
+    title: "fallingShape",
+    body: `The 2D array of the current piece.<br><br>
+Example T piece:<br>
+<b>[[0,1,0],<br>&nbsp;[1,1,1]]</b><br><br>
+<b>Who writes it?</b><br>
+<span class="tag w">W</span> dropNewPieceFromTop — sets new shape<br>
+<span class="tag w">W</span> rotateFallingPiece — replaces with rotated<br><br>
+<b>Who reads it?</b><br>
+<span class="tag r">R</span> pieceWillCrash — loops through cells<br>
+<span class="tag r">R</span> lockPieceOntoBoard — loops through cells<br>
+<span class="tag r">R</span> fallingPieceCoversCell — checks positions<br>
+<span class="tag r">R</span> rotateFallingPiece — reads to rotate`
+  },
+
+  fallingRow: {
+    title: "fallingRow",
+    body: `How far DOWN the piece is.<br><br>
+0 = top of board.<br>
+19 = bottom row.<br><br>
+<b>Who writes it?</b><br>
+<span class="tag w">W</span> dropNewPieceFromTop — resets to 0<br>
+<span class="tag w">W</span> movePieceDownOneRow — does fallingRow++<br><br>
+<b>Who reads it?</b><br>
+<span class="tag r">R</span> pieceWillCrash — calculates nextRow<br>
+<span class="tag r">R</span> lockPieceOntoBoard — calculates board position<br>
+<span class="tag r">R</span> fallingPieceCoversCell — compares position`
+  },
+
+  fallingCol: {
+    title: "fallingCol",
+    body: `How far RIGHT the piece is.<br><br>
+0 = left wall.<br>
+9 = right wall.<br><br>
+<b>Who writes it?</b><br>
+<span class="tag w">W</span> dropNewPieceFromTop — resets to 3<br>
+<span class="tag w">W</span> keyboard ← — does fallingCol--<br>
+<span class="tag w">W</span> keyboard → — does fallingCol++<br><br>
+<b>Who reads it?</b><br>
+<span class="tag r">R</span> pieceWillCrash — calculates nextCol<br>
+<span class="tag r">R</span> lockPieceOntoBoard — calculates board position<br>
+<span class="tag r">R</span> fallingPieceCoversCell — compares position`
+  },
+
+  score: {
+    title: "score",
+    body: `The player's score.<br><br>
+Starts at 0. Goes up by 100 for each row cleared.<br><br>
+<b>Who writes it?</b><br>
+<span class="tag w">W</span> removeCompletedRows — score += 100 per row<br>
+<span class="tag w">W</span> startGame — resets to 0<br><br>
+<b>Who reads it?</b><br>
+<span class="tag r">R</span> removeCompletedRows — to update the screen`
+  },
+
+  gameTimer: {
+    title: "gameTimer",
+    body: `Stores the ID returned by setInterval.<br><br>
+We need this ID so we can stop the timer later.<br><br>
+<b>Who writes it?</b><br>
+<span class="tag w">W</span> startGame — sets it via setInterval<br><br>
+<b>Who reads it?</b><br>
+<span class="tag r">R</span> startGame — calls clearInterval(gameTimer) to stop old timer before starting new<br>
+<span class="tag r">R</span> movePieceDownOneRow — calls clearInterval(gameTimer) on game over`
+  },
+
+  startGame: {
+    title: "startGame()",
+    body: `Called when player clicks Start.<br><br>
+<b>What it does, step by step:</b><br>
+1. Resets board to 20 rows of zeros<br>
+2. Sets score = 0<br>
+3. Clears old timer (if any)<br>
+4. Calls dropNewPieceFromTop()<br>
+5. Calls drawBoardOnScreen()<br>
+6. Starts setInterval → fires movePieceDownOneRow every 600ms<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> board — fresh empty grid<br>
+<span class="tag w">W</span> score — resets to 0<br>
+<span class="tag w">W</span> gameTimer — new interval id<br><br>
+<b>Calls:</b><br>
+<span class="tag c">C</span> dropNewPieceFromTop()<br>
+<span class="tag c">C</span> drawBoardOnScreen()`
+  },
+
+  dropNewPieceFromTop: {
+    title: "dropNewPieceFromTop()",
+    body: `Picks a random shape and puts it at the top.<br><br>
+<b>Step by step:</b><br>
+1. Math.random() → decimal 0 to 1<br>
+2. × allShapes.length (5) → 0 to 5<br>
+3. Math.floor() → whole number 0–4<br>
+4. Pick that shape from allShapes<br>
+5. Reset fallingCol = 3 (middle)<br>
+6. Reset fallingRow = 0 (top)<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> fallingShape — new random shape<br>
+<span class="tag w">W</span> fallingCol — reset to 3<br>
+<span class="tag w">W</span> fallingRow — reset to 0`
+  },
+
+  pieceWillCrash_down: {
+    title: "pieceWillCrash(0, 1)",
+    body: `Called by movePieceDownOneRow to check:<br>"Can the piece fall one row down?"<br><br>
+colShift = 0 (not moving left/right)<br>
+rowShift = 1 (moving 1 row down)<br><br>
+Loops every block of fallingShape.<br>
+Calculates where each block would land.<br><br>
+Returns TRUE if:<br>
+• nextRow >= 20 (hit the floor)<br>
+• board[nextRow][nextCol] === 1 (hit a block)<br><br>
+Returns FALSE → safe to move down.<br><br>
+<b>Reads:</b><br>
+<span class="tag r">R</span> fallingShape, fallingRow, fallingCol, board`
+  },
+
+  pieceWillCrash_spawn: {
+    title: "pieceWillCrash(0, 0)",
+    body: `Called right after spawning a new piece.<br><br>
+colShift = 0, rowShift = 0 — no movement.<br>
+Just checks: "does the piece already overlap something?"<br><br>
+If TRUE → board is full → GAME OVER.<br><br>
+<b>Reads:</b><br>
+<span class="tag r">R</span> fallingShape, fallingRow, fallingCol, board`
+  },
+
+  movePieceDownOneRow: {
+    title: "movePieceDownOneRow()",
+    body: `The main game tick. Runs every 600ms and also when ↓ is pressed.<br><br>
+<b>Step by step:</b><br>
+1. Ask pieceWillCrash(0, 1)<br>
+2. If NO crash → fallingRow++ → draw<br>
+3. If YES crash → piece has landed:<br>
+&nbsp;&nbsp;a. lockPieceOntoBoard()<br>
+&nbsp;&nbsp;b. removeCompletedRows()<br>
+&nbsp;&nbsp;c. dropNewPieceFromTop()<br>
+&nbsp;&nbsp;d. Check pieceWillCrash(0,0) → Game Over?<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> fallingRow — increments by 1<br><br>
+<b>Calls:</b><br>
+<span class="tag c">C</span> pieceWillCrash()<br>
+<span class="tag c">C</span> lockPieceOntoBoard()<br>
+<span class="tag c">C</span> removeCompletedRows()<br>
+<span class="tag c">C</span> dropNewPieceFromTop()<br>
+<span class="tag c">C</span> drawBoardOnScreen()`
+  },
+
+  lockPieceOntoBoard: {
+    title: "lockPieceOntoBoard()",
+    body: `The piece has landed. Stamp it onto the board.<br><br>
+Loops every cell of fallingShape.<br>
+For each 1 it finds:<br>
+→ board[fallingRow + r][fallingCol + c] = 1<br><br>
+After this, the piece is part of the board forever.<br><br>
+<b>Reads:</b><br>
+<span class="tag r">R</span> fallingShape, fallingRow, fallingCol<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> board — sets cells to 1`
+  },
+
+  removeCompletedRows: {
+    title: "removeCompletedRows()",
+    body: `Check every row from bottom to top.<br><br>
+For each row:<br>
+→ board[r].every(cell => cell === 1)<br>
+→ If ALL cells are 1 → row is full!<br><br>
+Then:<br>
+1. board.splice(r, 1) — remove the row<br>
+2. board.unshift([0,0,...]) — add empty row on top<br>
+3. score += 100<br>
+4. r++ — recheck same index (rows shifted)<br><br>
+<b>Reads:</b><br>
+<span class="tag r">R</span> board, score<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> board — removes/adds rows<br>
+<span class="tag w">W</span> score — adds 100 per row`
+  },
+
+  rotateFallingPiece: {
+    title: "rotateFallingPiece()",
+    body: `Rotates the shape 90° clockwise.<br><br>
+The math:<br>
+<b>First column → first row (reversed)</b><br><br>
+Example:<br>
+[[1,0],    becomes   [[1,1],<br>
+&nbsp;[1,0],  →  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[0,0],<br>
+&nbsp;[1,1]]            [0,1]]<br><br>
+Safety check:<br>
+Saves old shape first. Tries the rotation.<br>
+If pieceWillCrash(0,0) → puts old shape back.<br><br>
+<b>Reads:</b><br>
+<span class="tag r">R</span> fallingShape<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> fallingShape — new rotated shape<br><br>
+<b>Calls:</b><br>
+<span class="tag c">C</span> pieceWillCrash(0, 0)`
+  },
+
+  drawBoardOnScreen: {
+    title: "drawBoardOnScreen()",
+    body: `Redraws the whole board every time something changes.<br><br>
+<b>Step by step:</b><br>
+1. Clear boardDiv.innerHTML = ""<br>
+2. Loop 20 rows × 10 cols<br>
+3. For each cell, check two things:<br>
+&nbsp;&nbsp;• board[r][c] === 1? (locked block)<br>
+&nbsp;&nbsp;• fallingPieceCoversCell(r,c)? (falling piece)<br>
+4. If either → class = "cell black"<br>
+5. Otherwise → class = "cell" (empty)<br><br>
+<b>Reads:</b><br>
+<span class="tag r">R</span> board, fallingShape, fallingRow, fallingCol<br><br>
+<b>Calls:</b><br>
+<span class="tag c">C</span> fallingPieceCoversCell() for every cell`
+  },
+
+  fallingRowPlusPlus: {
+    title: "fallingRow++",
+    body: `The simplest action in the game.<br><br>
+Just adds 1 to fallingRow.<br><br>
+If fallingRow was 5 → now it's 6.<br>
+This moves the piece one row down on screen.<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> fallingRow`
+  },
+
+  gameOver: {
+    title: "Game Over",
+    body: `Triggered when a new piece spawns and immediately crashes.<br><br>
+This means the board is full.<br><br>
+<b>What happens:</b><br>
+1. clearInterval(gameTimer) — stops the 600ms timer<br>
+2. Shows "Game Over!" text on screen<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> gameTimer — effectively nullified`
+  },
+
+  timer: {
+    title: "setInterval (the heartbeat)",
+    body: `Started in startGame().<br><br>
+<b>setInterval(movePieceDownOneRow, 600)</b><br><br>
+Every 600 milliseconds (0.6 seconds):<br>
+→ automatically calls movePieceDownOneRow()<br><br>
+This is what makes the piece fall by itself without the player pressing anything.<br><br>
+The ID is saved in gameTimer so we can stop it:<br>
+• clearInterval(gameTimer) on game over<br>
+• clearInterval(gameTimer) before restart`
+  },
+
+  keydown: {
+    title: "keydown event",
+    body: `Fires every time the player presses a key.<br><br>
+The browser calls this function automatically.<br><br>
+It checks <b>e.key</b> to see which key was pressed, then acts:<br><br>
+← ArrowLeft → move left if safe<br>
+→ ArrowRight → move right if safe<br>
+↓ ArrowDown → call movePieceDownOneRow()<br>
+↑ ArrowUp → call rotateFallingPiece()<br><br>
+Then always calls drawBoardOnScreen() to show the change.`
+  },
+
+  moveLeft: {
+    title: "← Move Left",
+    body: `Player pressed left arrow.<br><br>
+First checks: pieceWillCrash(-1, 0)<br>
+→ colShift = -1 means "move left 1 column"<br>
+→ rowShift = 0 means "don't move up or down"<br><br>
+If NO crash → fallingCol-- (move left)<br>
+If YES crash → do nothing (at the wall)<br><br>
+<b>Writes (if safe):</b><br>
+<span class="tag w">W</span> fallingCol — decreases by 1`
+  },
+
+  moveRight: {
+    title: "→ Move Right",
+    body: `Player pressed right arrow.<br><br>
+First checks: pieceWillCrash(1, 0)<br>
+→ colShift = +1 means "move right 1 column"<br><br>
+If NO crash → fallingCol++ (move right)<br>
+If YES crash → do nothing (at the wall)<br><br>
+<b>Writes (if safe):</b><br>
+<span class="tag w">W</span> fallingCol — increases by 1`
+  },
+
+  resetBoard: {
+    title: "Reset board & score",
+    body: `Part of startGame().<br><br>
+<b>Resetting the board:</b><br>
+board = []<br>
+Loop 20 times → push [0,0,0,0,0,0,0,0,0,0]<br>
+→ Fresh empty 20×10 grid<br><br>
+<b>Resetting score:</b><br>
+score = 0<br>
+Update the HTML text to show 0<br><br>
+<b>Writes:</b><br>
+<span class="tag w">W</span> board — all zeros<br>
+<span class="tag w">W</span> score — back to 0`
+  },
+};
+
+
+function showFn(key) {
+  const d = info[key];
+  if (!d) return;
+  document.getElementById("explain-panel").innerHTML =
+    `<h3>${d.title}</h3>${d.body}`;
+
+  // highlight active box
+  document.querySelectorAll(".box").forEach(b => b.classList.remove("active"));
+  event.currentTarget.classList.add("active");
+}
+
+function showVar(key) {
+  const d = info[key];
+  if (!d) return;
+  document.getElementById("explain-panel").innerHTML =
+    `<h3>${d.title}</h3>${d.body}`;
+
+  document.querySelectorAll(".var-box").forEach(b => b.classList.remove("highlight"));
+  document.getElementById("v-" + key).classList.add("highlight");
+}
+
+</script>
+</body>
+</html>
